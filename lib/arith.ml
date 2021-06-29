@@ -30,7 +30,7 @@ let rec eval = function
   | Succ n -> (
       match eval n with
       | Numeric nv -> Numeric (NumericSucc nv)
-      |                _ -> raise EvalError
+      | _ -> raise EvalError
     )
   | Pred n -> (
       match eval n with
