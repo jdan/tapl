@@ -1,5 +1,10 @@
 open Lib
+open Arith
 
 let () =
-  let result = Math.add 2 3 in
-  print_endline (string_of_int result)
+  eval (
+    If ( (IsZero (Pred (Succ O)))
+       , Succ (Succ (Succ O))
+       , O
+       )
+  ) |> string_of_value |> print_endline
