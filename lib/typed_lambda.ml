@@ -25,7 +25,7 @@ type context = (string * typ) list
 let empty_context = []
 
 let rec string_of_typ = function
-  | Bool -> "Bool"
+  | Bool -> "bool"
   | Function (l, r) -> string_of_typ l ^ " -> " ^ string_of_typ r
   | Unit -> "unit"
 
@@ -64,11 +64,15 @@ let%test _ =
 let%test _ =
   try
     ignore (typ_of_exp [("x", Bool)] (App (Var "x", Var "x"))); false
-  with TypeError "App: Expected function. Got: Bool" -> true
+  with TypeError "App: Expected function. Got: bool" -> true
 let%test _ =
   try
     ignore (typ_of_exp [("x", Function (Function (Bool, Bool), Bool))] (App (Var "x", True))); false
-  with TypeError "App: Expected argument to have type Bool -> Bool. Got: Bool" -> true
+  with TypeError "App: Expected argument to have type bool -> bool. Got: bool" -> true
+let%test _ =
+  try
+    ignore (typ_of_exp [("x", Function (Unit, Bool))] (App (Var "x", True))); false
+  with TypeError "App: Expected argument to have type unit. Got: bool" -> true
 
 let rec string_of_exp = function
   | True -> "True"
@@ -79,7 +83,7 @@ let rec string_of_exp = function
   | Unit -> "()"
 
 let%test _ =
-  "λx:Bool -> Bool.λy:Bool.(x y)" =
+  "λx:bool -> bool.λy:bool.(x y)" =
   string_of_exp (Abstr ("x", Function (Bool, Bool), (Abstr ("y", Bool, (App (Var "x", Var "y"))))))
 
 let%test _ = "λx:unit.()" = string_of_exp (Abstr ("x", Unit, Unit))
