@@ -3,6 +3,7 @@
 type typ =
   | Bool
   | Function of typ * typ
+  | Unit
 
 type exp =
   | True
@@ -10,11 +11,13 @@ type exp =
   | Var of string
   | Abstr of string * typ * exp
   | App of exp * exp
+  | Unit
 
 type value =
   | AbstrValue of string * typ * exp
   | TrueValue
   | FalseValue
+  | UnitValue
 
 type env = (string * value) list
 type context = (string * typ) list
@@ -24,6 +27,7 @@ let empty_context = []
 let rec string_of_typ = function
   | Bool -> "Bool"
   | Function (l, r) -> string_of_typ l ^ " -> " ^ string_of_typ r
+  | Unit -> "unit"
 
 exception TypeError of string
 let rec typ_of_exp context = function
@@ -49,6 +53,7 @@ let rec typ_of_exp context = function
           "App: Expected function. Got: " ^ string_of_typ t
         ))
     )
+  | Unit -> Unit
 
 let%test _ =
   Function (Bool, Bool) = typ_of_exp [("x", Bool)] (Abstr ("y", Bool, (Var "x")))
@@ -71,7 +76,10 @@ let rec string_of_exp = function
   | Var name -> name
   | Abstr (name, t, body) -> "λ" ^ name ^ ":" ^ string_of_typ t ^ "."  ^ string_of_exp body
   | App (l, r) -> "(" ^ string_of_exp l ^ " " ^ string_of_exp r ^ ")"
+  | Unit -> "()"
 
 let%test _ =
   "λx:Bool -> Bool.λy:Bool.(x y)" =
   string_of_exp (Abstr ("x", Function (Bool, Bool), (Abstr ("y", Bool, (App (Var "x", Var "y"))))))
+
+let%test _ = "λx:unit.()" = string_of_exp (Abstr ("x", Unit, Unit))
