@@ -13,6 +13,7 @@ type exp =
   | App of exp * exp
   | Unit
   | Seq of exp * exp
+  | As of exp * typ
 
 type value =
   | AbstrValue of string * exp
@@ -61,6 +62,11 @@ let rec typ_of_exp context = function
     if a_typ <> Unit
     then raise (TypeError ("Seq: Expected unit. Got: " ^ string_of_typ a_typ))
     else typ_of_exp context b
+  | As (e, t) ->
+    let e_typ = typ_of_exp context e
+    in if t <> e_typ
+    then raise (TypeError ("As: Expected " ^ string_of_typ t ^ ". Got: " ^ string_of_typ e_typ))
+    else t
 
 let%test _ =
   Function (Bool, Bool) = typ_of_exp [("x", Bool)] (Abstr ("y", Bool, (Var "x")))
@@ -85,6 +91,11 @@ let%test _ =
   try
     ignore (typ_of_exp [("x", Bool); ("y", Bool)] (Seq (Var "x", Var "y"))); false
   with TypeError "Seq: Expected unit. Got: bool" -> true
+let%test _ =
+  try
+    ignore (typ_of_exp [("x", Bool)] (As (Var "x", Unit))); false
+  with TypeError "As: Expected unit. Got: bool" -> true
+let%test _ = Bool = typ_of_exp [("x", Bool)] (As (Var "x", Bool))
 
 let rec string_of_exp = function
   | True -> "True"
@@ -94,6 +105,7 @@ let rec string_of_exp = function
   | App (l, r) -> "(" ^ string_of_exp l ^ " " ^ string_of_exp r ^ ")"
   | Unit -> "()"
   | Seq (a, b) -> string_of_exp a ^ ";" ^ string_of_exp b
+  | As (e, t) -> "(" ^ string_of_exp e ^ ":" ^ string_of_typ t ^ ")"
 
 let%test _ =
   "λx:bool -> bool.λy:bool.(x y)" =
@@ -116,6 +128,7 @@ let rec eval env = function
   | Seq (a, b) ->
     (* a;b = ((λx:unit.b) a) *)
     eval env (App (Abstr ("clean", Unit, b), a))
+  | As (e, _) -> eval env e
 
 let%test _ = TrueValue = eval [] (App (Abstr ("x", Bool, True), True))
 let%test _ = TrueValue = eval [] (Seq (Unit, (App (Abstr ("x", Bool, True), True))))
