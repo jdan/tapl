@@ -15,7 +15,7 @@ type exp =
   | Seq of exp * exp
 
 type value =
-  | AbstrValue of string * typ * exp
+  | AbstrValue of string * exp
   | TrueValue
   | FalseValue
   | UnitValue
@@ -100,3 +100,21 @@ let%test _ =
   string_of_exp (Abstr ("x", Function (Bool, Bool), (Abstr ("y", Bool, (App (Var "x", Var "y"))))))
 
 let%test _ = "λx:unit.()" = string_of_exp (Abstr ("x", Unit, Unit))
+
+exception EvaluationError of string
+let rec eval env = function
+  | True -> TrueValue
+  | False -> FalseValue
+  | Unit -> UnitValue
+  | Var binding -> List.assoc binding env
+  | Abstr (binding, _, body) -> AbstrValue (binding, body)
+  | App (a, b) -> (
+      match eval env a with
+      | AbstrValue (binding, body) -> eval ((binding, eval env b) :: env) body
+      | _ -> raise (EvaluationError "Expected function.")
+    )
+  | Seq (a, b) ->
+    eval env a |> ignore;
+    eval env b
+
+let%test _ = TrueValue = eval [] (App (Abstr ("x", Bool, True), True))
