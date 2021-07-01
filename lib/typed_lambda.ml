@@ -1,9 +1,10 @@
-(* TAPL chapter 9 *)
+(* TAPL chapter 9 to 11 *)
 
 type typ =
   | Bool
   | Function of typ * typ
   | Unit
+  | Product of typ * typ
 
 type exp =
   | True
@@ -15,12 +16,16 @@ type exp =
   | Seq of exp * exp
   | As of exp * typ
   | Let of string * exp * exp
+  | Pair of exp * exp
+  | First of exp
+  | Second of exp
 
 type value =
   | AbstrValue of string * exp
   | TrueValue
   | FalseValue
   | UnitValue
+  | PairValue of value * value
 
 type env = (string * value) list
 type context = (string * typ) list
@@ -31,6 +36,7 @@ let rec string_of_typ = function
   | Bool -> "bool"
   | Function (l, r) -> string_of_typ l ^ " -> " ^ string_of_typ r
   | Unit -> "unit"
+  | Product (a, b) -> Printf.sprintf "%s × %s" (string_of_typ a) (string_of_typ b)
 
 exception TypeError of string
 let rec typ_of_exp context = function
@@ -70,6 +76,17 @@ let rec typ_of_exp context = function
     else t
   | Let (binding, value, body) ->
     typ_of_exp ((binding, typ_of_exp context value) :: context) body
+  | Pair (a, b) -> Product (typ_of_exp context a, typ_of_exp context b)
+  | First p -> (
+      match typ_of_exp context p with
+      | Product (a, _) -> a
+      | t -> raise (TypeError (Printf.sprintf "First: Expected pair. Got: %s" (string_of_typ t)))
+    )
+  | Second p -> (
+      match typ_of_exp context p with
+      | Product (_, b) -> b
+      | t -> raise (TypeError (Printf.sprintf "Second: Expected pair. Got: %s" (string_of_typ t)))
+    )
 
 let%test _ =
   Function (Bool, Bool) = typ_of_exp [("x", Bool)] (Abstr ("y", Bool, (Var "x")))
@@ -101,6 +118,16 @@ let%test _ =
 let%test _ = Bool = typ_of_exp [("x", Bool)] (As (Var "x", Bool))
 let%test _ = Bool = typ_of_exp [] (Let ("x", True, Var "x"))
 
+let%test _ = Product (Bool, Unit) = typ_of_exp [("x", Bool); ("y", Unit)] (Pair (Var "x", Var "y"))
+let%test _ =
+  try
+    ignore (typ_of_exp [("x", Bool)] (First (Var "x"))); false
+  with TypeError "First: Expected pair. Got: bool" -> true
+let%test _ =
+  try
+    ignore (typ_of_exp [("x", Bool)] (Second (Var "x"))); false
+  with TypeError "Second: Expected pair. Got: bool" -> true
+
 let rec string_of_exp = function
   | True -> "true"
   | False -> "false"
@@ -112,6 +139,10 @@ let rec string_of_exp = function
   | As (e, t) -> "(" ^ string_of_exp e ^ ":" ^ string_of_typ t ^ ")"
   | Let (binding, value, body) ->
     Printf.sprintf "let %s = %s in %s" binding (string_of_exp value) (string_of_exp body)
+  | Pair (a, b) ->
+    Printf.sprintf "{%s, %s}" (string_of_exp a) (string_of_exp b)
+  | First p -> Printf.sprintf "%s.1" (string_of_exp p)
+  | Second p -> Printf.sprintf "%s.2" (string_of_exp p)
 
 let%test _ =
   "λx:bool -> bool.λy:bool.(x y)" =
@@ -137,6 +168,17 @@ let rec eval env = function
   | As (e, _) -> eval env e
   | Let (binding, value, body) ->
     eval ((binding, eval env value) :: env) body
+  | Pair (a, b) -> PairValue (eval env a, eval env b)
+  | First p -> (
+      match eval env p with
+      | PairValue (a, _) -> a
+      | _ -> raise (EvaluationError "Expected pair.") (* TODO: Got: _ *)
+    )
+  | Second p -> (
+      match eval env p with
+      | PairValue (_, b) -> b
+      | _ -> raise (EvaluationError "Expected pair.")
+    )
 
 let%test _ = TrueValue = eval [] (App (Abstr ("x", Bool, True), True))
 let%test _ = TrueValue = eval [] (Seq (Unit, (App (Abstr ("x", Bool, True), True))))
