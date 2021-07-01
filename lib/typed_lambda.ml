@@ -114,7 +114,8 @@ let rec eval env = function
       | _ -> raise (EvaluationError "Expected function.")
     )
   | Seq (a, b) ->
-    eval env a |> ignore;
-    eval env b
+    (* a;b = ((λx:unit.b) a) *)
+    eval env (App (Abstr ("clean", Unit, b), a))
 
 let%test _ = TrueValue = eval [] (App (Abstr ("x", Bool, True), True))
+let%test _ = TrueValue = eval [] (Seq (Unit, (App (Abstr ("x", Bool, True), True))))
