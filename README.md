@@ -1,3 +1,5 @@
-## typed-lambda
+## tapl
 
-Learning the simply typed lambda calculus via TAPL
+Going through Types and Programming Languages
+
+https://www.cis.upenn.edu/~bcpierce/tapl/
